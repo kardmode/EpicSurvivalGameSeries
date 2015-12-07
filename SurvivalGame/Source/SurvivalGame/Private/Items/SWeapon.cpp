@@ -13,7 +13,6 @@ ASWeapon::ASWeapon(const class FObjectInitializer& PCIP)
 {
 	Mesh = PCIP.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("WeaponMesh3P"));
 	Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
-	Mesh->bChartDistanceFactor = true;
 	Mesh->bReceivesDecals = true;
 	Mesh->CastShadow = true;
 	Mesh->SetCollisionObjectType(ECC_WorldDynamic);
@@ -168,6 +167,13 @@ void ASWeapon::OnUnEquip()
 		bPendingEquip = false;
 
 		GetWorldTimerManager().ClearTimer(EquipFinishedTimerHandle);
+	}
+	if (bPendingReload)
+	{
+		StopWeaponAnimation(ReloadAnim);
+		bPendingReload = false;
+
+		GetWorldTimerManager().ClearTimer(TimerHandle_ReloadWeapon);
 	}
 
 	DetermineWeaponState();
@@ -487,7 +493,7 @@ UAudioComponent* ASWeapon::PlayWeaponSound(USoundCue* SoundToPlay)
 	UAudioComponent* AC = nullptr;
 	if (SoundToPlay && MyPawn)
 	{
-		AC = UGameplayStatics::PlaySoundAttached(SoundToPlay, MyPawn->GetRootComponent());
+		AC = UGameplayStatics::SpawnSoundAttached(SoundToPlay, MyPawn->GetRootComponent());
 	}
 
 	return AC;

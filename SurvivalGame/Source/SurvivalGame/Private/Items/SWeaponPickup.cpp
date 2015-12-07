@@ -5,7 +5,6 @@
 #include "SWeapon.h"
 #include "SWeaponPickup.h"
 #include "SPlayerController.h"
-#include "SHUD.h"
 
 
 ASWeaponPickup::ASWeaponPickup(const FObjectInitializer& ObjectInitializer)
@@ -27,7 +26,7 @@ void ASWeaponPickup::OnUsed(APawn* InstigatorPawn)
 		if (MyPawn->WeaponSlotAvailable(WeaponClass->GetDefaultObject<ASWeapon>()->GetStorageSlot()))
 		{
 			FActorSpawnParameters SpawnInfo;
-			SpawnInfo.bNoCollisionFail = true;
+			SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 			ASWeapon* NewWeapon = GetWorld()->SpawnActor<ASWeapon>(WeaponClass, SpawnInfo);
 
 			MyPawn->AddWeapon(NewWeapon);
@@ -39,7 +38,7 @@ void ASWeaponPickup::OnUsed(APawn* InstigatorPawn)
 			ASPlayerController* PC = Cast<ASPlayerController>(MyPawn->GetController());
 			if (PC)
 			{
-				PC->ClientMessageReceived("Weapon slot already taken.");
+				PC->ClientHUDMessage(EHUDMessage::Weapon_SlotTaken);
 			}
 		}
 	}

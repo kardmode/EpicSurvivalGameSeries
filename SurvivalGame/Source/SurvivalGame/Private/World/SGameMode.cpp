@@ -12,6 +12,7 @@
 #include "SZombieAIController.h"
 #include "SZombieCharacter.h"
 #include "SPlayerStart.h"
+#include "SMutator.h"
 
 
 ASGameMode::ASGameMode(const FObjectInitializer& ObjectInitializer)
@@ -95,12 +96,11 @@ void ASGameMode::DefaultTimer()
 			bool CurrentIsNight = MyGameState->GetIsNight();
 			if (CurrentIsNight != LastIsNight)
 			{
-				FString MessageText = CurrentIsNight ? "SURVIVE!" : "You Survived! Now prepare for the coming night!";
-
 				ASGameState* MyGameState = Cast<ASGameState>(GameState);
 				if (MyGameState)
 				{
-					MyGameState->BroadcastGameMessage(MessageText);
+					EHUDMessage MessageID = CurrentIsNight ? EHUDMessage::Game_SurviveStart : EHUDMessage::Game_SurviveEnded;
+					MyGameState->BroadcastGameMessage(MessageID);
 				}
 
 				/* The night just ended, respawn all dead players */
@@ -140,7 +140,7 @@ bool ASGameMode::CanDealDamage(class ASPlayerState* DamageCauser, class ASPlayer
 }
 
 
-FString ASGameMode::InitNewPlayer(class APlayerController* NewPlayerController, const TSharedPtr<FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal)
+FString ASGameMode::InitNewPlayer(class APlayerController* NewPlayerController, const TSharedPtr<const FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal)
 {
 	FString Result = Super::InitNewPlayer(NewPlayerController, UniqueId, Options, Portal);
 
@@ -222,7 +222,7 @@ AActor* ASGameMode::ChoosePlayerStart_Implementation(AController* Player)
 	}
 
 	/* If we failed to find any (so BestStart is nullptr) fall back to the base code */
-	return BestStart ? BestStart : Super::ChoosePlayerStart(Player);
+	return BestStart ? BestStart : Super::ChoosePlayerStart_Implementation(Player);
 }
 
 
@@ -281,7 +281,7 @@ bool ASGameMode::IsSpawnpointPreferred(APlayerStart* SpawnPoint, AController* Co
 void ASGameMode::SpawnNewBot()
 {
 	FActorSpawnParameters SpawnInfo;
-	SpawnInfo.bNoCollisionFail = true;
+	SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
 	ASZombieAIController* AIC = GetWorld()->SpawnActor<ASZombieAIController>(SpawnInfo);
 	RestartPlayer(AIC);
@@ -364,4 +364,108 @@ void ASGameMode::OnNightEnded()
 void ASGameMode::Killed(AController* Killer, AController* VictimPlayer, APawn* VictimPawn, const UDamageType* DamageType)
 {
 	// Do nothing (can we used to apply score or keep track of kill count)
+}
+
+
+void ASGameMode::SetPlayerDefaults(APawn* PlayerPawn)
+{
+	Super::SetPlayerDefaults(PlayerPawn);
+
+	SpawnDefaultInventory(PlayerPawn);
+}
+
+
+void ASGameMode::SpawnDefaultInventory(APawn* PlayerPawn)
+{
+	ASCharacter* MyPawn = Cast<ASCharacter>(PlayerPawn);
+	if (MyPawn)
+	{
+		for (int32 i = 0; i < DefaultInventoryClasses.Num(); i++)
+		{
+			if (DefaultInventoryClasses[i])
+			{
+				FActorSpawnParameters SpawnInfo;
+				SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+				ASWeapon* NewWeapon = GetWorld()->SpawnActor<ASWeapon>(DefaultInventoryClasses[i], SpawnInfo);
+
+				MyPawn->AddWeapon(NewWeapon);
+			}
+		}
+	}
+}
+
+
+/************************************************************************/
+/* Modding & Mutators                                                   */
+/************************************************************************/
+
+
+void ASGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
+{
+	// HACK: workaround to inject CheckRelevance() into the BeginPlay sequence
+	UFunction* Func = AActor::GetClass()->FindFunctionByName(FName(TEXT("ReceiveBeginPlay")));
+	Func->FunctionFlags |= FUNC_Native;
+	Func->SetNativeFunc((Native)&ASGameMode::BeginPlayMutatorHack);
+
+	/* Spawn all mutators. */
+	for (int32 i = 0; i < MutatorClasses.Num(); i++)
+	{
+		AddMutator(MutatorClasses[i]);
+	}
+
+	if (BaseMutator)
+	{
+		BaseMutator->InitGame(MapName, Options, ErrorMessage);
+	}
+
+	Super::InitGame(MapName, Options, ErrorMessage);
+}
+
+
+bool ASGameMode::CheckRelevance_Implementation(AActor* Other)
+{
+	/* Execute the first in the mutator chain */
+	if (BaseMutator)
+	{
+		return BaseMutator->CheckRelevance(Other);
+	}
+
+	return true;
+}
+
+
+void ASGameMode::BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL)
+{
+	P_FINISH;
+
+	// WARNING: This function is called by every Actor in the level during his BeginPlay sequence. Meaning:  'this' is actually an AActor! Only do AActor things!
+	if (!IsA(ALevelScriptActor::StaticClass()) && !IsA(ASMutator::StaticClass()) &&
+		(RootComponent == NULL || RootComponent->Mobility != EComponentMobility::Static || (!IsA(AStaticMeshActor::StaticClass()) && !IsA(ALight::StaticClass()))))
+	{
+		ASGameMode* Game = GetWorld()->GetAuthGameMode<ASGameMode>();
+		// a few type checks being AFTER the CheckRelevance() call is intentional; want mutators to be able to modify, but not outright destroy
+		if (Game != NULL && Game != this && !Game->CheckRelevance((AActor*)this) && !IsA(APlayerController::StaticClass()))
+		{
+			/* Actors are destroyed if they fail the relevance checks (which moves through the gamemode specific check AND the chain of mutators) */
+			Destroy();
+		}
+	}
+}
+
+
+void ASGameMode::AddMutator(TSubclassOf<ASMutator> MutClass)
+{
+	ASMutator* NewMut = GetWorld()->SpawnActor<ASMutator>(MutClass);
+	if (NewMut)
+	{
+		if (BaseMutator == nullptr)
+		{
+			BaseMutator = NewMut;
+		}
+		else
+		{
+			// Add as child in chain
+			BaseMutator->NextMutator = NewMut;
+		}
+	}
 }

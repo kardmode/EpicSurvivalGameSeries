@@ -3,7 +3,6 @@
 #include "SurvivalGame.h"
 #include "SCharacter.h"
 #include "SUsableActor.h"
-#include "SHUD.h"
 #include "SWeapon.h"
 #include "SWeaponPickup.h"
 #include "SCharacterMovementComponent.h"
@@ -74,8 +73,6 @@ void ASCharacter::BeginPlay()
 		// Set a timer to increment hunger every interval
 		FTimerHandle Handle;
 		GetWorldTimerManager().SetTimer(Handle, this, &ASCharacter::IncrementHunger, IncrementHungerInterval, true);
-
-		SpawnDefaultInventory();
 	}
 }
 
@@ -415,7 +412,7 @@ void ASCharacter::RestoreCondition(float HealthRestored, float HungerRestored)
 	ASPlayerController* PC = Cast<ASPlayerController>(Controller);
 	if (PC)
 	{
-		PC->ClientMessageReceived("Energy Restored");
+		PC->ClientHUDMessage(EHUDMessage::Character_EnergyRestored);
 	}
 }
 
@@ -482,27 +479,6 @@ FName ASCharacter::GetInventoryAttachPoint(EInventorySlot Slot) const
 	default:
 		// Not implemented.
 		return "";
-	}
-}
-
-
-void ASCharacter::SpawnDefaultInventory()
-{
-	if (Role < ROLE_Authority)
-	{	
-		return;
-	}
-
-	for (int32 i = 0; i < DefaultInventoryClasses.Num(); i++)
-	{
-		if (DefaultInventoryClasses[i])
-		{
-			FActorSpawnParameters SpawnInfo;
-			SpawnInfo.bNoCollisionFail = true;
-			ASWeapon* NewWeapon = GetWorld()->SpawnActor<ASWeapon>(DefaultInventoryClasses[i], SpawnInfo);
-
-			AddWeapon(NewWeapon);
-		}
 	}
 }
 
@@ -807,7 +783,7 @@ void ASCharacter::DropWeapon()
 
 		/* Spawn the "dropped" weapon */
 		FActorSpawnParameters SpawnInfo;
-		SpawnInfo.bNoCollisionFail = true;
+		SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 		ASWeaponPickup* NewWeaponPickup = GetWorld()->SpawnActor<ASWeaponPickup>(CurrentWeapon->WeaponPickupClass, SpawnLocation, FRotator::ZeroRotator, SpawnInfo);
 
 		if (NewWeaponPickup)
