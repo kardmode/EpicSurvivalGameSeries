@@ -41,12 +41,12 @@ ASZombieCharacter::ASZombieCharacter(const class FObjectInitializer& ObjectIniti
 	MeleeCollisionComp->SetCapsuleRadius(35, false);
 	MeleeCollisionComp->SetCollisionResponseToAllChannels(ECR_Ignore);
 	MeleeCollisionComp->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-	MeleeCollisionComp->AttachParent = GetCapsuleComponent();
+	MeleeCollisionComp->SetupAttachment(GetCapsuleComponent());
 
 	AudioLoopComp = CreateDefaultSubobject<UAudioComponent>(TEXT("ZombieLoopedSoundComp"));
 	AudioLoopComp->bAutoActivate = false;
 	AudioLoopComp->bAutoDestroy = false;
-	AudioLoopComp->AttachParent = RootComponent;
+	AudioLoopComp->SetupAttachment(RootComponent);
 
 	Health = 100;
 	MeleeDamage = 24.0f;
@@ -73,7 +73,7 @@ void ASZombieCharacter::BeginPlay()
 	}
 	if (MeleeCollisionComp)
 	{
-		MeleeCollisionComp->OnComponentBeginOverlap.AddDynamic(this, &ASZombieCharacter::OnMeleeCompBeginOverlap);
+		//MeleeCollisionComp->OnComponentBeginOverlap.AddDynamic(this, &ASZombieCharacter::OnMeleeCompBeginOverlap);
 	}
 
 	BroadcastUpdateAudioLoop(bSensedTarget);
