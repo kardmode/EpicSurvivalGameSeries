@@ -96,12 +96,8 @@ void ASGameMode::DefaultTimer()
 			bool CurrentIsNight = MyGameState->GetIsNight();
 			if (CurrentIsNight != LastIsNight)
 			{
-				ASGameState* MyGameState = Cast<ASGameState>(GameState);
-				if (MyGameState)
-				{
-					EHUDMessage MessageID = CurrentIsNight ? EHUDMessage::Game_SurviveStart : EHUDMessage::Game_SurviveEnded;
-					MyGameState->BroadcastGameMessage(MessageID);
-				}
+				EHUDMessage MessageID = CurrentIsNight ? EHUDMessage::Game_SurviveStart : EHUDMessage::Game_SurviveEnded;
+				MyGameState->BroadcastGameMessage(MessageID);
 
 				/* The night just ended, respawn all dead players */
 				if (!CurrentIsNight)
@@ -129,18 +125,22 @@ void ASGameMode::DefaultTimer()
 bool ASGameMode::CanDealDamage(class ASPlayerState* DamageCauser, class ASPlayerState* DamagedPlayer) const
 {
 	if (bAllowFriendlyFireDamage)
+	{
 		return true;
+	}
 
 	/* Allow damage to self */
 	if (DamagedPlayer == DamageCauser)
+	{
 		return true;
+	}
 
 	// Compare Team Numbers
 	return DamageCauser && DamagedPlayer && (DamageCauser->GetTeamNumber() != DamagedPlayer->GetTeamNumber());
 }
 
 
-FString ASGameMode::InitNewPlayer(class APlayerController* NewPlayerController, const TSharedPtr<const FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal)
+FString ASGameMode::InitNewPlayer(class APlayerController* NewPlayerController, const FUniqueNetIdRepl& UniqueId, const FString& Options, const FString& Portal)
 {
 	FString Result = Super::InitNewPlayer(NewPlayerController, UniqueId, Options, Portal);
 

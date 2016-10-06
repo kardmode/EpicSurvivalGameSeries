@@ -248,7 +248,7 @@ void ASZombieCharacter::SimulateMeleeStrike_Implementation()
 }
 
 
-void ASZombieCharacter::OnMeleeCompBeginOverlap(class AActor* OtherActor, class UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult & SweepResult)
+void ASZombieCharacter::OnMeleeCompBeginOverlap(class UPrimitiveComponent* OverlappedComponent, class AActor* OtherActor, class UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult & SweepResult)
 {
 	/* Stop any running attack timers */
 	TimerHandle_MeleeAttack.Invalidate();
